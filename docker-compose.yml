@@ -1,0 +1,80 @@
+version: "3.9"
+
+services:
+
+  api:
+    build: ./api
+    ports:
+      - "80:8000"
+    volumes:
+      - ./api:/usr/src/app
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=db+postgresql://user:password@database:5432/alpha
+    depends_on:
+      - redis
+      - database
+    networks:
+      - ms_network
+    command: >
+      sh -c "while ! nc -z database 5432; do echo 'waiting for database...' & sleep 3; done &&
+      uvicorn main:app --host 0.0.0.0  --reload "
+
+  worker:
+    build: ./api
+    command: celery -A tasks worker --loglevel=info 
+    volumes:
+      - ./api:/usr/src/app
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=db+postgresql://user:password@database:5432/alpha
+    depends_on:
+      - api
+      - redis
+      - database
+    networks:
+      - ms_network
+
+  celery_beat:
+    build: ./api
+    command: >
+      sh -c "rm -f /tmp/celerybeat.pid &&
+             rm -f /tmp/celerybeat-schedule &&
+             celery -A tasks beat --loglevel=info --pidfile /tmp/celerybeat.pid -s /tmp/celerybeat-schedule"
+    volumes:
+      - ./api:/usr/src/app
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=db+postgresql://user:password@database:5432/alpha
+    depends_on:
+      - api
+      - redis
+      - database
+    networks:
+      - ms_network
+
+  redis:
+    image: redis:latest
+    networks:
+      - ms_network
+
+  database:
+    image: postgres:latest
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=alpha
+    ports:
+      - "7676:5432"
+    networks:
+      - ms_network
+    user: postgres
+
+volumes:
+  postgres_data:
+
+networks:
+  ms_network:
+    driver: bridge
