@@ -15,7 +15,7 @@ services:
       - redis
       - database
     networks:
-      - ms_network
+      - cf_network
     command: >
       sh -c "while ! nc -z database 5432; do echo 'waiting for database...' & sleep 3; done &&
       uvicorn main:app --host 0.0.0.0  --reload "
@@ -33,7 +33,7 @@ services:
       - redis
       - database
     networks:
-      - ms_network
+      - cf_network
 
   celery_beat:
     build: ./api
@@ -51,12 +51,12 @@ services:
       - redis
       - database
     networks:
-      - ms_network
+      - cf_network
 
   redis:
     image: redis:latest
     networks:
-      - ms_network
+      - cf_network
 
   database:
     image: postgres:latest
@@ -69,12 +69,12 @@ services:
     ports:
       - "7676:5432"
     networks:
-      - ms_network
+      - cf_network
     user: postgres
 
 volumes:
   postgres_data:
 
 networks:
-  ms_network:
+  cf_network:
     driver: bridge
